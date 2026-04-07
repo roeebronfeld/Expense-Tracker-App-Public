@@ -1,0 +1,72 @@
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Node
+**/node_modules/
+**/dist/
+**/coverage/
+
+# Env files (never commit secrets)
+**/.env
+**/.env.*
+!.env.example
+
+# =============================================================================
+# Terraform
+# =============================================================================
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files (state should be in S3)
+*.tfstate
+*.tfstate.*
+
+# Plan files
+tfplan
+*.tfplan
+*.plan
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude override files (used for local testing)
+*_override.tf
+*_override.tf.json
+*override.tf
+*override.tf.json
+
+# Exclude CLI configuration files
+.terraformrc
+terraform.rc
+
+# Ignore actual tfvars files (contain secrets)
+*.tfvars
+!*.tfvars.example
+
+# Lock file should be committed
+!.terraform.lock.hcl
+
+# =============================================================================
+# Helm
+# =============================================================================
+# Chart dependencies (downloaded by helm dependency update)
+**/charts/*.tgz
+
+# =============================================================================
+# Kubernetes Secrets
+# =============================================================================
+# Never commit actual secrets
+**/secrets.yaml
+!**/secrets.yaml.example
+
+# =============================================================================
+# ArgoCD
+# =============================================================================
+# ArgoCD tokens/credentials
+argocd-*.json

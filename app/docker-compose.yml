@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: apppass
+      POSTGRES_DB: expensetracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d expensetracker"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development  # Use dev stage by default
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://app:apppass@db:5432/expensetracker?schema=public
+      PORT: 3000
+      NODE_ENV: development
+      JWT_SECRET: local-dev-jwt-secret
+      JWT_EXPIRES_IN: 1d
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Hot reload for development
+      - ./backend/src:/app/src:ro
+      - ./backend/prisma:/app/prisma:ro
+    command: sh -c "npx prisma migrate deploy && npm run dev"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development  # Use dev stage for local development
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: ""
+      VITE_PROXY_TARGET: http://backend:3000
+    volumes:
+      - ./frontend/src:/app/src:ro
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

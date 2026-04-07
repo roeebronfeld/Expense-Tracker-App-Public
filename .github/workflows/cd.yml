@@ -1,0 +1,81 @@
+name: CD - Deploy to EKS
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: 'Image tag to deploy (default: latest or latest successful main SHA)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  GITOPS_REPO: roeebronfeld/Expense-Tracker-gitops-Public
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_branch || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main') ||
+      github.event_name == 'workflow_dispatch'
+    environment: prod
+    steps:
+      - name: Determine image tag
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+            echo "tag=${SHA:0:7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: roeebronfeld
+          repositories: Expense-Tracker-gitops-Public
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.GITOPS_REPO }}
+          token: ${{ steps.app-token.outputs.token }}
+          path: gitops
+
+      - name: Update production image tags
+        run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          echo "Deploying ${TAG} to production"
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq -i '.image.tag = "'"${TAG}"'"' gitops/environments/prod/backend-values.yaml
+          yq -i '.image.tag = "'"${TAG}"'"' gitops/environments/prod/frontend-values.yaml
+
+      - name: Commit and push
+        working-directory: gitops
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add environments/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "deploy(prod): update image tags to ${{ steps.meta.outputs.tag }}"
+            git push
+          fi
