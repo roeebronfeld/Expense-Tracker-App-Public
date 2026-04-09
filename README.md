@@ -17,6 +17,8 @@ This repository contains the React frontend, Node.js API, Prisma data model, loc
 
 ### Application Walkthrough
 
+![Expense Tracker dashboard preview](docs/assets/dashboard-preview.png)
+
 [Watch the desktop UI demo](docs/assets/app-ui-desktop-demo.mp4)
 
 ### CI/CD Automation
